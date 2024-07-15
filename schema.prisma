@@ -1,0 +1,313 @@
+datasource db {
+    provider = "mysql"
+    url      = env("DATABASE_URL")
+}
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+// User model
+model User {
+    id                   String             @id @default(cuid()) // Identifiant unique
+    avatar               String? // Avatar (optionnel)
+    firstName            String
+    lastName             String
+    email                String             @unique // Adresse e-mail unique
+    phone                String
+    password             String // Mot de passe
+    bio                  String? // Biographie (optionnel)
+    isAdmin              Boolean            @default(false)
+    level                Int                @default(0)
+    // BLOG
+    posts                Post[] // Relation avec les articles écrits par cet utilisateur
+    blogComments         BlogComment[] // les comments par cet utilisateur
+    postLikes            PostLike[]
+    blogCommentLike      BlogCommentLike[]
+    // FORUM
+    topics               Topic[] // Relation avec les sujets écrits par cet utilisateur
+    forumComments        ForumComment[] // les comments par cet utilisateur
+    topicLikes           TopicLike[]
+    forumCommentLikes    ForumCommentLike[]
+    // Champ pour stocker le token de réinitialisation du mot de passe
+    resetPasswordToken   String?
+    // Champ pour stocker la date d'expiration du token
+    resetPasswordExpires DateTime?
+    // Statut du compte (Activé ou désactivé par l'admin)
+    status               Boolean            @default(true)
+    createdAt            DateTime           @default(now())
+}
+
+// Category model
+model Category {
+    id        String   @id @default(cuid()) // Identifiant unique
+    name      String // Nom de la catégorie
+    slug      String   @unique // Slug
+    posts     Post[] // Relation avec les articles de cette catégorie
+    topics    Topic[] // Relation avec les sujets de cette catégorie
+    createdAt DateTime @default(now())
+}
+
+// Tag model
+model Tag {
+    id        String   @id @default(cuid()) // Identifiant unique
+    name      String // Nom de l'étiquette
+    slug      String   @unique // Slug
+    posts     Post[] // Relation avec les articles associés à cette étiquette
+    createdAt DateTime @default(now())
+}
+
+// BLOG
+
+// Post model
+model Post {
+    id            String        @id @default(cuid()) // Identifiant unique
+    user          User          @relation(fields: [userId], references: [id]) // Auteur de l'article
+    userId        String // Foreign key for the user
+    imageUrl      String
+    category      Category      @relation(fields: [categoryId], references: [id]) // Catégorie de l'article (optionnelle)
+    categoryId    String // Foreign key for the category
+    tags          Tag[] // Relation avec les étiquettes associées à cet article
+    title         String // Titre de l'article
+    slug          String        @unique // Slug
+    content       String        @db.LongText // Contenu de l'article
+    blogComments  BlogComment[] // Relation avec les commentaires sur cet article
+    postLikes     PostLike[]
+    countViews    Int           @default(0) // Nombre de vues (par défaut à 0)
+    countLikes    Int           @default(0) // Nombre de likes (par défaut à 0)
+    countDislikes Int           @default(0) // Nombre de dislikes (par défaut à 0)
+    countShares   Int           @default(0) // Nombre de partages (par défaut à 0)
+    countComments Int           @default(0) // Nombre de commentaires (par défaut à 0)
+    createdAt     DateTime      @default(now())
+}
+
+// Comment model
+model BlogComment {
+    id               String            @id @default(cuid()) // Identifiant unique
+    content          String // Contenu du commentaire
+    user             User              @relation(fields: [userId], references: [id]) // Auteur du commentaire
+    userId           String // Foreign key for the comment user
+    post             Post              @relation(fields: [postId], references: [id]) // Article associé
+    postId           String // Foreign key for the associated article
+    parentComment    BlogComment?      @relation("parentBlogComment", fields: [parentId], references: [id])
+    parentId         String?
+    childComments    BlogComment[]     @relation("parentBlogComment")
+    blogCommentLikes BlogCommentLike[]
+    countLikes       Int               @default(0) // Nombre de likes (par défaut à 0)
+    countDislikes    Int               @default(0) // Nombre de dislikes (par défaut à 0)
+    createdAt        DateTime          @default(now()) // Date de création du commentaire
+}
+
+// Like model for an article
+model PostLike {
+    type      String // Type de like/dislike
+    user      User     @relation(fields: [userId], references: [id]) // Utilisateur qui a aimé/disliké
+    userId    String // Foreign key for the user who liked/disliked
+    post      Post     @relation(fields: [postId], references: [id]) // Article associé
+    postId    String // Foreign key for the associated article
+    createdAt DateTime @default(now())
+
+    // Création d'une contrainte d'ID composite pour garantir l'unicité
+    @@id(name: "userId_postId", [userId, postId])
+}
+
+// LikeComment model for an comment
+model BlogCommentLike {
+    type          String // Type de like/dislike
+    user          User        @relation(fields: [userId], references: [id]) // Utilisateur qui a aimé/disliké
+    userId        String // Foreign key for the user who liked/disliked
+    blogComment   BlogComment @relation(fields: [blogCommentId], references: [id]) // comment associé
+    blogCommentId String // Foreign key for the associated article
+    createdAt     DateTime    @default(now())
+
+    // Création d'une contrainte d'ID composite pour garantir l'unicité
+    @@id(name: "userId_blogCommentId", [userId, blogCommentId])
+}
+
+// FORUM
+
+// Topic model
+model Topic {
+    id            String         @id @default(cuid()) // Identifiant unique
+    imageUrl      String
+    category      Category       @relation(fields: [categoryId], references: [id]) // Catégorie de l'article (optionnelle)
+    categoryId    String // Foreign key for the category
+    title         String // Titre de l'article
+    content       String // Contenu de l'article
+    user          User           @relation(fields: [userId], references: [id]) // Auteur de l'article
+    userId        String // Foreign key for the user
+    forumComments ForumComment[] // Relation avec les commentaires sur cet article
+    topicLikes    TopicLike[]
+    countViews    Int            @default(0) // Nombre de vues (par défaut à 0)
+    countLikes    Int            @default(0) // Nombre de likes (par défaut à 0)
+    countDislikes Int            @default(0) // Nombre de dislikes (par défaut à 0)
+    countShares   Int            @default(0) // Nombre de partages (par défaut à 0)
+    countComments Int            @default(0) // Nombre de commentaires (par défaut à 0)
+    createdAt     DateTime       @default(now())
+}
+
+// Comment model
+model ForumComment {
+    id                String             @id @default(cuid()) // Identifiant unique
+    content           String // Contenu du commentaire
+    user              User               @relation(fields: [userId], references: [id]) // Auteur du commentaire
+    userId            String // Foreign key for the comment user
+    topic             Topic              @relation(fields: [topicId], references: [id]) // Article associé
+    topicId           String // Foreign key for the associated article
+    parentComment     ForumComment?      @relation("parentForumComment", fields: [parentId], references: [id])
+    parentId          String?
+    childComment      ForumComment[]     @relation("parentForumComment")
+    forumCommentLikes ForumCommentLike[]
+    countLikes        Int                @default(0) // Nombre de likes (par défaut à 0)
+    countDislikes     Int                @default(0) // Nombre de dislikes (par défaut à 0)
+    createdAt         DateTime           @default(now()) // Date de création du commentaire
+}
+
+// Like model for an article
+model TopicLike {
+    type      String // Type de like/dislike
+    user      User     @relation(fields: [userId], references: [id]) // Utilisateur qui a aimé/disliké
+    userId    String // Foreign key for the user who liked/disliked
+    topic     Topic    @relation(fields: [topicId], references: [id]) // Article associé
+    topicId   String // Foreign key for the associated article
+    createdAt DateTime @default(now())
+
+    // Création d'une contrainte d'ID composite pour garantir l'unicité
+    @@id(name: "userId_topicId", [userId, topicId])
+}
+
+// LikeComment model for an comment
+model ForumCommentLike {
+    type           String // Type de like/dislike
+    user           User         @relation(fields: [userId], references: [id]) // Utilisateur qui a aimé/disliké
+    userId         String // Foreign key for the user who liked/disliked
+    forumComment   ForumComment @relation(fields: [forumCommentId], references: [id]) // comment associé
+    forumCommentId String // Foreign key for the associated article
+    createdAt      DateTime     @default(now())
+
+    // Création d'une contrainte d'ID composite pour garantir l'unicité
+    @@id(name: "userId_forumCommentId", [userId, forumCommentId])
+}
+
+// Stat model
+model Stat {
+    id                 String   @id @default(cuid()) // Identifiant unique
+    // Users
+    countUsers         Int      @default(0) // Nombre d'utilisateurs (par défaut à 0)
+    // Posts
+    countPosts         Int      @default(0) // Nombre de posts (par défaut à 0)
+    countPostComments  Int      @default(0) // Nombre de commentaires (par défaut à 0)
+    countPostLikes     Int      @default(0) // Nombre de likes (par défaut à 0)
+    countPostDislikes  Int      @default(0) // Nombre de dislikes (par défaut à 0)
+    countPostViews     Int      @default(0) // Nombre de vues (par défaut à 0)
+    countPostShares    Int      @default(0) // Nombre de partages (par défaut à 0)
+    // Topics
+    countTopics        Int      @default(0) // Nombre de Topics (par défaut à 0)
+    countTopicComments Int      @default(0) // Nombre de commentaires (par défaut à 0)
+    countTopicLikes    Int      @default(0) // Nombre de likes (par défaut à 0)
+    countTopicDislikes Int      @default(0) // Nombre de dislikes (par défaut à 0)
+    countTopicViews    Int      @default(0) // Nombre de vues (par défaut à 0)
+    countTopicShares   Int      @default(0) // Nombre de partages (par défaut à 0)
+    createdAt          DateTime @default(now())
+}
+
+// Social links model
+model SocialLink {
+    id        String   @id @default(cuid()) // Identifiant unique
+    facebook  String   @default("https://www.facebook.com")
+    linkedin  String   @default("https://www.linkedin.com")
+    twitter   String   @default("https://www.twitter.com")
+    instagram String   @default("https://www.instagram.com")
+    createdAt DateTime @default(now())
+}
+
+model Carousel {
+    id        String   @id @default(cuid())
+    name      String   @unique
+    url       String
+    createdAt DateTime @default(now())
+}
+
+model Action {
+    id        String   @id @default(cuid())
+    imageUrl  String
+    title     String
+    content   String   @db.LongText
+    createdAt DateTime @default(now())
+}
+
+model Activity {
+    id        String   @id @default(cuid())
+    imageUrl  String
+    title     String
+    content   String   @db.LongText
+    createdAt DateTime @default(now())
+}
+
+model Event {
+    id        String   @id @default(cuid())
+    imageUrl  String
+    title     String
+    eventDate DateTime
+    content   String   @db.LongText
+    createdAt DateTime @default(now())
+}
+
+model Testimonial {
+    id        String   @id @default(cuid())
+    imageUrl  String
+    name      String
+    job       String // son poste, travail, postion qu'il occupe
+    content   String   @db.LongText
+    createdAt DateTime @default(now())
+}
+
+model Help {
+    id        String   @id @default(cuid())
+    imageUrl  String
+    videoUrl  String?
+    title     String
+    content   String   @db.LongText
+    createdAt DateTime @default(now())
+}
+
+model Actuality {
+    id        String   @id @default(cuid())
+    imageUrl  String
+    title     String
+    content   String   @db.LongText
+    createdAt DateTime @default(now())
+}
+
+model Cause {
+    id        String   @id @default(cuid())
+    imageUrl  String
+    title     String
+    content   String   @db.LongText
+    createdAt DateTime @default(now())
+}
+
+model About {
+    id        String   @id @default(cuid())
+    name      String   @unique
+    title     String
+    url       String
+    content   String   @db.LongText
+    createdAt DateTime @default(now())
+}
+
+model Page {
+    id        String   @id @default(cuid())
+    name      String   @unique
+    title     String
+    url       String
+    createdAt DateTime @default(now())
+}
+
+model Contact {
+    id        String   @id @default(cuid())
+    phone     String
+    subject   String
+    message   String   @db.LongText
+    createdAt DateTime @default(now())
+}
